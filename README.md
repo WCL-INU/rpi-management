@@ -25,7 +25,13 @@ Setup
           - sensor-uploader
     ```
   - Program sources under `data/<program>/` (copied to `/home/pi/wcl/<program>`).
-  - Each program’s env template at `data/<program>/env/.env.example` lists required keys.
+  - Each program’s env template at `data/<program>/env/.env.example` lists required keys as `KEY=<placeholder>` lines, e.g.:
+    ```
+    SERVER_URL=<server url address for data upload>
+    HIVE_ID=<unique hive id>
+    SENSOR_TYPE_ID=<sensor type id>
+    SENSOR_DEVICE_IDs=<sensor device ids, space-separated>
+    ```
   - Optional fallback `data/list-of-programs` (one program name per line) used when a device has no `programs` list.
 - SSH access: ensure `ssh <host>` works for each Pi (keys/config in `~/.ssh/config` as needed).
 
