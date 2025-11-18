@@ -72,3 +72,25 @@ Workflow tips
 - Keep secrets/PII only in `data/devices.yaml` (git-ignored); commit templates like `.env.example` instead.
 - If multiple devices share the same program set, leave `programs` empty in those entries and list programs in `data/list-of-programs`.
 - Ensure `.env.example` keys match `env` entries in `devices.yaml` so `write-env-file` can populate values.
+
+Repository layout (key files)
+-----------------------------
+```
+.
+├── README.md
+├── main.py                          # CLI wrapper: uv run main.py <command>
+├── data/
+│   ├── devices.yaml                 # unified device inventory + env values (private)
+│   ├── list-of-programs             # optional shared program list (one per line)
+│   └── <program>/                   # program sources copied to /home/pi/wcl/<program>/
+│       └── env/.env.example         # KEY=<placeholder> template consumed by write-env-file
+├── src/
+│   ├── copy-programs.py             # rsync programs to Pis
+│   ├── enable-programs.py           # run setup on Pis
+│   ├── update-programs.py           # stop service, rsync, restart
+│   ├── write-env-file.py            # render .env per program/device from devices.yaml
+│   └── utils/
+│       ├── __init__.py
+│       └── devices_config.py        # load/save/upsert helpers for devices.yaml and list-of-programs
+└── pyproject.toml                   # dependencies (requests, pyyaml)
+```
