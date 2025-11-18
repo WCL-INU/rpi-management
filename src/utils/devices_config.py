@@ -8,7 +8,7 @@ import yaml
 
 def get_data_dir() -> Path:
     """Return absolute path to the data directory."""
-    return Path(__file__).resolve().parent.parent / "data"
+    return Path(__file__).resolve().parent.parent.parent / "data"
 
 
 DEFAULT_DEVICES_PATH = get_data_dir() / "devices.yaml"
