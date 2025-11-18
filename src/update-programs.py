@@ -1,37 +1,33 @@
 import os
-import sys
+from typing import List
 
+from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 def main():
     print("Updating programs on Raspberry Pi devices...")
 
-    data_dir = os.path.dirname(os.path.abspath(__file__).replace("src", "data"))
+    data_dir = str(get_data_dir())
+    devices = load_devices()
+    shared_programs: List[str] = load_programs_list(data_dir)
 
-    with open(f"{data_dir}/list-of-rpis", "r") as file:
-        rpi_list = file.readlines()
-
-    if not rpi_list:
-        print("No Raspberry Pi devices found in rpi-list.")
+    if not devices:
+        print("No Raspberry Pi devices found in devices.yaml.")
         return
 
-    with open(f"{data_dir}/list-of-programs", "r") as file:
-        program_list = file.readlines()
-
-    if not program_list:
-        print("No programs found in program list.")
-        return
-
-    for rpi in rpi_list:
-        rpi = rpi.strip()
+    for device in devices:
+        rpi = device.get("host") or device.get("id")
         if not rpi:
+            print("Skipping device without host or id.")
+            continue
+
+        device_programs = device.get("programs", shared_programs)
+        if not device_programs:
+            print(f"No programs configured for {rpi}, skipping.")
             continue
 
         print(f"Processing Raspberry Pi: {rpi}")
 
-        for program in program_list:
-            program = program.strip()
-            if not program:
-                continue
+        for program in device_programs:
 
             # 해당 라즈베리파이에서 서비스 동작 중지
             os.system(f"ssh {rpi} 'sudo systemctl stop upload-{program}'")

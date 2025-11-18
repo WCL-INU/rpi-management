@@ -1,8 +1,7 @@
 import os
-import sys
-import requests
-import argparse
-import csv
+from typing import Dict, List
+
+from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 
 def extract_keywords(env_lines):
@@ -16,29 +15,38 @@ def extract_keywords(env_lines):
 
 def main():
     print("Writing environment file...")
-    # Code to write the environment file goes here
+    data_dir = get_data_dir()
+    devices = load_devices()
+    shared_programs: List[str] = load_programs_list(data_dir)
 
-    data_dir = os.path.dirname(os.path.abspath(__file__).replace("src", "data"))
+    if not devices:
+        print("No Raspberry Pi devices found in devices.yaml.")
+        return
 
-    csv_path = os.path.join(data_dir, "list-of-rpis-env.csv")
-    with open(csv_path, "r", encoding="utf-8") as f:
-        csv_content = f.readlines()
-    csv_reader = csv.DictReader(csv_content)
-    csv_rows = [row for row in csv_reader]
+    for device in devices:
+        rpi = device.get("host") or device.get("id")
+        if not rpi:
+            print("Skipping device without host or id.")
+            continue
 
-    with open(f"{data_dir}/list-of-programs", "r") as file:
-        program_list = file.readlines()
+        device_programs = device.get("programs", shared_programs)
+        if not device_programs:
+            print(f"No programs configured for {rpi}, skipping.")
+            continue
 
-    # 각 행 별로 라즈베리파이 별 정보가 적혀있음
-    for row in csv_rows:
-        print(f"Processing Raspberry Pi: {row['raspberry pi']}")
+        env_data: Dict[str, object] = device.get("env", {})
+        print(f"Processing Raspberry Pi: {rpi}")
 
         # 각 프로그램 별로 .env 파일 작성
-        for program in program_list:
+        for program in device_programs:
             program = program.strip()
+            if not program:
+                continue
+
             print(f" - {program}")
-            env_example_path = os.path.join(data_dir, program, "env", ".env.example")
-            if os.path.exists(env_example_path):
+            env_example_path = data_dir / program / "env" / ".env.example"
+            keywords: List[str] = []
+            if env_example_path.exists():
                 with open(env_example_path, "r", encoding="utf-8") as env_file:
                     env_lines = env_file.readlines()
                 keywords = extract_keywords(env_lines)
@@ -48,14 +56,15 @@ def main():
 
             if keywords:
                 env_contents = "\n".join(
-                    f"{key}={row[key]}" for key in keywords if key in row
+                    f"{key}={env_data[key]}" for key in keywords if key in env_data
                 )
+                if not env_contents:
+                    print(f"   No matching env values for {program}, skipping write.")
+                    continue
                 print(f"   Writing .env with contents:\n{env_contents}\n")
+                os.system(f"ssh {rpi} 'mkdir -p /home/pi/wcl/{program}/env'")
                 os.system(
-                    f"ssh {row['raspberry pi']} 'mkdir -p /home/pi/wcl/{program}/env'"
-                )
-                os.system(
-                    f"ssh {row['raspberry pi']} 'echo \"{env_contents}\" > /home/pi/wcl/{program}/env/.env'"
+                    f"ssh {rpi} 'echo \"{env_contents}\" > /home/pi/wcl/{program}/env/.env'"
                 )
             else:
                 print(f"   No keywords found for {program}")
