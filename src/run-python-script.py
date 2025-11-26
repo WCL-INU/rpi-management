@@ -84,7 +84,7 @@ def process_device(
     except Exception as exc:
         return (f"{name}: invalid manifest from {host}: {exc}", False)
 
-    dest_dir = data_dir / (device_id or host)
+    dest_dir = data_dir / "images"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     success = True
@@ -142,7 +142,8 @@ def main() -> None:
             if pending:
                 elapsed = int(time.time() - start)
                 print(
-                    f"[running] {len(pending)} device(s) remaining... {elapsed}s elapsed"
+                    f"[running] {len(pending)} device(s) remaining... {elapsed}s elapsed",
+                    flush=True,
                 )
 
     # Condensed output after all tasks to avoid interleaving noisy logs
