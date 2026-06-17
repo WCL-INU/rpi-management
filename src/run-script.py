@@ -84,7 +84,7 @@ def process_device(
     except Exception as exc:
         return (f"{name}: invalid manifest from {host}: {exc}", False)
 
-    dest_dir = data_dir / "images"
+    dest_dir = data_dir / device_id
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     success = True
