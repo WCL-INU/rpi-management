@@ -1,21 +1,23 @@
-import os
 import sys
+import subprocess
+
+
+COMMANDS = {
+    "copy-programs": "src/copy-programs.py",
+    "write-env-file": "src/write-env-file.py",
+    "enable-programs": "src/enable-programs.py",
+    "update-programs": "src/update-programs.py",
+}
 
 
 def main():
-    print("Hello from rpi-management!")
+    if len(sys.argv) != 2 or sys.argv[1] not in COMMANDS:
+        print("Usage: uv run main.py <command>")
+        print(f"Commands: {', '.join(COMMANDS)}")
+        return 1
 
-    if len(sys.argv) > 1 and sys.argv[1] == "copy-programs":
-        os.system("uv run src/copy-programs.py")
-    
-    if len(sys.argv) > 1 and sys.argv[1] == "write-env-file":
-        os.system("uv run src/write-env-file.py")
-
-    if len(sys.argv) > 1 and sys.argv[1] == "enable-programs":
-        os.system("uv run src/enable-programs.py")
-
-    if len(sys.argv) > 1 and sys.argv[1] == "update-programs":
-        os.system("uv run src/update-programs.py")
+    result = subprocess.run(["uv", "run", COMMANDS[sys.argv[1]]], check=False)
+    return result.returncode
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

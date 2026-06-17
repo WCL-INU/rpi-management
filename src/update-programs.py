@@ -1,6 +1,6 @@
-import os
 from typing import List
 
+from utils.commands import RSYNC_TIMEOUT, SSH_TIMEOUT, run_command
 from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 def main():
@@ -30,13 +30,32 @@ def main():
         for program in device_programs:
 
             # 해당 라즈베리파이에서 서비스 동작 중지
-            os.system(f"ssh {rpi} 'sudo systemctl stop upload-{program}'")
-            print(f"Copying {program} on {rpi}")
-            os.system(
-                f"rsync -a --exclude='.git' --exclude='.env' {data_dir}/{program} {rpi}:/home/pi/wcl/"
+            run_command(
+                ["ssh", rpi, f"sudo systemctl stop upload-{program}"],
+                timeout=SSH_TIMEOUT,
+                description=f"stop upload-{program} on {rpi}",
             )
+            print(f"Copying {program} on {rpi}")
+            copied = run_command(
+                [
+                    "rsync",
+                    "-a",
+                    "--exclude=.git",
+                    "--exclude=.env",
+                    f"{data_dir}/{program}",
+                    f"{rpi}:/home/pi/wcl/",
+                ],
+                timeout=RSYNC_TIMEOUT,
+                description=f"copy {program} to {rpi}",
+            )
+            if not copied:
+                continue
             # 해당 라즈베리파이에서 서비스 재시작
-            os.system(f"ssh {rpi} 'sudo systemctl start upload-{program}'")
+            run_command(
+                ["ssh", rpi, f"sudo systemctl start upload-{program}"],
+                timeout=SSH_TIMEOUT,
+                description=f"start upload-{program} on {rpi}",
+            )
 
         print(f"Finished processing {rpi}")
 

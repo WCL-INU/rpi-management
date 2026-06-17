@@ -1,6 +1,7 @@
-import os
+import shlex
 from typing import Dict, List
 
+from utils.commands import SSH_TIMEOUT, run_command
 from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 
@@ -62,9 +63,19 @@ def main():
                     print(f"   No matching env values for {program}, skipping write.")
                     continue
                 print(f"   Writing .env with contents:\n{env_contents}\n")
-                os.system(f"ssh {rpi} 'mkdir -p /home/pi/wcl/{program}/env'")
-                os.system(
-                    f"ssh {rpi} 'echo \"{env_contents}\" > /home/pi/wcl/{program}/env/.env'"
+                env_dir = f"/home/pi/wcl/{program}/env"
+                env_path = f"{env_dir}/.env"
+                if not run_command(
+                    ["ssh", rpi, f"mkdir -p {shlex.quote(env_dir)}"],
+                    timeout=SSH_TIMEOUT,
+                    description=f"create env directory for {program} on {rpi}",
+                ):
+                    continue
+                run_command(
+                    ["ssh", rpi, f"cat > {shlex.quote(env_path)}"],
+                    timeout=SSH_TIMEOUT,
+                    description=f"write .env for {program} on {rpi}",
+                    input_text=f"{env_contents}\n",
                 )
             else:
                 print(f"   No keywords found for {program}")

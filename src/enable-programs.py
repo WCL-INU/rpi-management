@@ -1,7 +1,8 @@
-import os
 import concurrent.futures
+import shlex
 from typing import List
 
+from utils.commands import SETUP_TIMEOUT, SSH_TIMEOUT, run_command
 from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 def main():
@@ -21,12 +22,27 @@ def main():
             return
 
         print(f"Processing Raspberry Pi: {rpi}")
-        os.system(f"ssh {rpi} 'mkdir -p /home/pi/wcl'")
+        if not run_command(
+            ["ssh", rpi, "mkdir -p /home/pi/wcl"],
+            timeout=SSH_TIMEOUT,
+            description=f"create /home/pi/wcl on {rpi}",
+        ):
+            return
+
         for program_name in programs:
             if not program_name:
                 continue
             print(f"Enabling {program_name} on {rpi}")
-            os.system(f"ssh {rpi} 'cd /home/pi/wcl/{program_name} && source setup'")
+            program_dir = f"/home/pi/wcl/{program_name}"
+            run_command(
+                [
+                    "ssh",
+                    rpi,
+                    f"cd {shlex.quote(program_dir)} && bash -lc 'source setup'",
+                ],
+                timeout=SETUP_TIMEOUT,
+                description=f"enable {program_name} on {rpi}",
+            )
 
         print(f"Finished processing {rpi}")
 
@@ -43,8 +59,11 @@ def main():
         tasks.append((host, programs))
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        for host, programs in tasks:
-            executor.submit(process_rpi, host, programs)
+        futures = [
+            executor.submit(process_rpi, host, programs) for host, programs in tasks
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
 
 
 if __name__ == "__main__":

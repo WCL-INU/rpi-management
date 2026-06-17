@@ -1,6 +1,6 @@
-import os
 from typing import List
 
+from utils.commands import RSYNC_TIMEOUT, SSH_TIMEOUT, run_command
 from utils.devices_config import get_data_dir, load_devices, load_programs_list
 
 def main():
@@ -27,11 +27,25 @@ def main():
 
         print(f"Processing Raspberry Pi: {rpi}")
 
-        os.system(f"ssh {rpi} 'mkdir -p /home/pi/wcl'")
+        if not run_command(
+            ["ssh", rpi, "mkdir -p /home/pi/wcl"],
+            timeout=SSH_TIMEOUT,
+            description=f"create /home/pi/wcl on {rpi}",
+        ):
+            continue
+
         for program in device_programs:
             print(f"Copying {program} on {rpi}")
-            os.system(
-                f"rsync -a --exclude='.git' {data_dir}/{program} {rpi}:/home/pi/wcl/"
+            run_command(
+                [
+                    "rsync",
+                    "-a",
+                    "--exclude=.git",
+                    f"{data_dir}/{program}",
+                    f"{rpi}:/home/pi/wcl/",
+                ],
+                timeout=RSYNC_TIMEOUT,
+                description=f"copy {program} to {rpi}",
             )
 
         print(f"Finished processing {rpi}")
