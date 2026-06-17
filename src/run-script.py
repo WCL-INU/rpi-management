@@ -3,19 +3,18 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
-import subprocess
 import tempfile
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from utils.commands import SCP_TIMEOUT, SCRIPT_TIMEOUT, run_command_capture
 from utils.devices_config import get_data_dir, load_devices
 
 
-def run_cmd(cmd: List[str]) -> Tuple[int, str, str]:
+def run_cmd(cmd: List[str], *, timeout: int, description: str) -> Tuple[int, str, str]:
     """Run command, capture stdout/stderr"""
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    return proc.returncode, proc.stdout or "", proc.stderr or ""
+    return run_command_capture(cmd, timeout=timeout, description=description)
 
 
 def collect_notable(*outputs: str) -> List[str]:
@@ -43,14 +42,18 @@ def process_device(
 
     remote_script = "/tmp/run-script.sh"
     rc, out, err = run_cmd(
-        ["scp", "-o", "BatchMode=yes", str(script_path), f"{host}:{remote_script}"]
+        ["scp", "-o", "BatchMode=yes", str(script_path), f"{host}:{remote_script}"],
+        timeout=SCP_TIMEOUT,
+        description=f"copy script to {host}",
     )
     logs.extend(collect_notable(out, err))
     if rc != 0:
         return (f"{name}: failed to copy script to {host}", False)
 
     rc, out, err = run_cmd(
-        ["ssh", "-o", "BatchMode=yes", host, f"bash {remote_script}"]
+        ["ssh", "-o", "BatchMode=yes", host, f"bash {remote_script}"],
+        timeout=SCRIPT_TIMEOUT,
+        description=f"execute script on {host}",
     )
     logs.extend(collect_notable(out, err))
     if rc != 0:
@@ -65,7 +68,9 @@ def process_device(
             "BatchMode=yes",
             f"{host}:/tmp/script_outputs.json",
             str(local_manifest),
-        ]
+        ],
+        timeout=SCP_TIMEOUT,
+        description=f"retrieve output manifest from {host}",
     )
     logs.extend(collect_notable(out, err))
     if rc != 0 or not local_manifest.exists():
@@ -95,7 +100,9 @@ def process_device(
         filename = os.path.basename(path_str)
         dest_path = dest_dir / filename
         rc, out, err = run_cmd(
-            ["scp", "-o", "BatchMode=yes", f"{host}:{path_str}", str(dest_path)]
+            ["scp", "-o", "BatchMode=yes", f"{host}:{path_str}", str(dest_path)],
+            timeout=SCP_TIMEOUT,
+            description=f"retrieve {path_str} from {host}",
         )
         logs.extend(collect_notable(out, err))
         if rc != 0:
