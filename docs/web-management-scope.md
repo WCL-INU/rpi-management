@@ -41,10 +41,11 @@
 
 - hostname
 - uptime
-- OS/kernel 정보
-- 루트 디스크 사용량
+- RAM 사용량
+- Storage 사용량
+- Camera 사용 가능 여부 (`rpicam-hello --list-cameras` 기준)
 
-온도, systemd 서비스 상태, CPU/메모리 사용량은 1차 범위에서 제외하고 필요성이 확인되면 추가한다.
+온도, CPU 사용량, systemd 서비스 상태는 1차 범위에서 제외하고 필요성이 확인되면 추가한다.
 
 ### 설정 정보 페이지
 
@@ -78,7 +79,7 @@
 - 웹에서 장비 추가/수정
 - `upload-*` systemd 서비스 상태 확인
 - mDNS 또는 IP 대역 기반 장비 탐색
-- CPU, 메모리, 온도 표시
+- CPU, 온도 표시
 - 웹에서 기존 CLI 작업 실행
 - 작업 로그 저장과 조회
 
@@ -102,7 +103,7 @@
 | 업타임 정보 | `up 3 hours` |
 | RAM | `512MB / 1GB` |
 | Storage | `4GB / 16GB` |
-| camera | `camera available` |
+| Camera | `camera available` |
 | 오류 메시지 | `ssh: connect to host raspberrypi-1.local port 22: Connection refused` |
 
 ## 구현 메모
@@ -110,6 +111,7 @@
 - 백엔드는 Python 표준 라이브러리 또는 가벼운 프레임워크 중 하나를 선택한다.
 - 외부 의존성을 추가하기 전에는 표준 라이브러리 `http.server`로 충분한지 먼저 판단한다.
 - 상태 확인 명령은 `ssh -o BatchMode=yes -o ConnectTimeout=4 <host> <command>` 형태를 사용한다.
+- 카메라 확인은 Raspberry Pi 최신 카메라 스택에 맞춰 `rpicam-hello --list-cameras`를 우선 사용한다.
 - 실패한 장비가 있어도 전체 화면이 멈추지 않도록 장비별 timeout을 둔다.
 - 쓰기 기능을 추가하기 전까지는 `data/devices.yaml`을 변경하지 않는다.
 
