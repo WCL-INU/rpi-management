@@ -23,6 +23,8 @@ uv sync
 ```text
 .
 ├── README.md
+├── docs/
+│   └── web-management-scope.md
 ├── main.py
 ├── pyproject.toml
 ├── data/
@@ -38,9 +40,14 @@ uv sync
     ├── run-python-script.py
     ├── run-script.py
     ├── update-programs.py
+    ├── web.py
     ├── write-env-file.py
     └── utils/
         └── devices_config.py
+└── web/
+    ├── app.js
+    ├── index.html
+    └── styles.css
 ```
 
 `data/`는 운영 설정과 배포 대상 파일을 두는 작업 디렉터리입니다. 장비 접속 정보, 환경 변수, 수집 결과 등이 들어가므로 Git에 올리지 않습니다.
@@ -200,6 +207,21 @@ upload-<program>
 
 예를 들어 프로그램 이름이 `sensor-uploader`이면 중지/시작 대상은 `upload-sensor-uploader`입니다.
 
+## 웹 관리 페이지
+
+등록된 Raspberry Pi 장비가 현재 동작 중인지와 기본 상태를 읽기 전용 대시보드로 확인할 수 있습니다. 메인 화면에는 프로그램 목록, 환경 변수 키, CLI 명령 안내 같은 설정 정보가 표시되지 않습니다.
+
+```bash
+uv run main.py web
+```
+
+브라우저에서 다음 주소를 엽니다.
+
+```text
+http://127.0.0.1:8080
+```
+
+기능 범위와 제외 항목은 `docs/web-management-scope.md`에 정리되어 있습니다.
 ## 원격 스크립트 실행 및 결과 수집
 
 관리 중인 장비에서 임시 진단 스크립트를 실행하고 결과 파일을 가져올 수 있습니다.
