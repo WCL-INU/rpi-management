@@ -4,7 +4,6 @@ import argparse
 import concurrent.futures
 import json
 import mimetypes
-import socket
 import subprocess
 import time
 from http import HTTPStatus
@@ -21,32 +20,22 @@ WEB_DIR = ROOT_DIR / "web"
 
 # Keep the status check short. This page is meant to answer "is it alive?" quickly,
 # so a slow or unreachable Raspberry Pi should not hold the whole dashboard hostage.
-STATUS_TIMEOUT = 10
+STATUS_TIMEOUT = 12
 CONNECT_TIMEOUT = 4
 
 
 # The main dashboard intentionally exposes only identity and network target fields.
 # Program names, env keys, and CLI commands belong to a future settings page, not the
-# operational status page the user asked for.
+# operational status page the user asked for. IP is shown as part of the runtime
+# Network value, because the document treats it as network status rather than a
+# separate configuration field.
 def normalize_device(device: MutableMapping[str, object]) -> Dict[str, Any]:
     device_id = str(device.get("id") or "").strip()
     host = str(device.get("host") or device_id).strip()
     return {
         "id": device_id,
         "host": host,
-        "ip": resolve_ip(host),
     }
-
-
-# IP resolution is useful context for operators, but it should never make the page
-# fail. If mDNS/DNS cannot resolve a host, the dashboard simply shows a dash.
-def resolve_ip(host: str) -> str:
-    if not host:
-        return ""
-    try:
-        return socket.gethostbyname(host)
-    except OSError:
-        return ""
 
 
 # Devices still come from devices.yaml because that is the existing source of truth.
@@ -71,6 +60,8 @@ def devices_payload() -> Dict[str, Any]:
 # parsed fields, and partial command failures should not hide other healthy values.
 # Camera detection uses rpicam-hello first because current Raspberry Pi OS camera
 # stacks expose cameras through rpicam rather than the older libcamera command name.
+# Temperature is labelled as CPU temperature in the UI; on Raspberry Pi this comes
+# from the SoC thermal zone or vcgencmd's CPU temperature reading.
 def build_status_command() -> str:
     return r'''
 print_value() {
@@ -78,6 +69,10 @@ print_value() {
   shift
   value="$($@ 2>/dev/null || true)"
   printf '%s=%s\n' "$key" "$value"
+}
+
+read_cpu_totals() {
+  awk '/^cpu / {idle=$5; total=0; for (i=2; i<=NF; i++) total += $i; print idle, total}' /proc/stat
 }
 
 print_value hostname hostname
@@ -88,6 +83,35 @@ printf 'ram=%s\n' "${ram_value:-unknown}"
 
 storage_value="$(df -h / 2>/dev/null | awk 'NR==2 {printf "%s / %s (%s used)", $3, $2, $5}')"
 printf 'storage=%s\n' "${storage_value:-unknown}"
+
+cpu_first="$(read_cpu_totals 2>/dev/null || true)"
+sleep 1
+cpu_second="$(read_cpu_totals 2>/dev/null || true)"
+cpu_active="$(awk -v a="$cpu_first" -v b="$cpu_second" 'BEGIN {split(a, x, " " ); split(b, y, " " ); idle=y[1]-x[1]; total=y[2]-x[2]; if (total > 0) printf "%.0f%% active", (1 - idle / total) * 100}')"
+load_value="$(awk '{print $1}' /proc/loadavg 2>/dev/null)"
+core_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || true)"
+printf 'cpu=%s / load %s / %s cores\n' "${cpu_active:-unknown}" "${load_value:-unknown}" "${core_count:-unknown}"
+
+if command -v vcgencmd >/dev/null 2>&1; then
+  temp_value="$(vcgencmd measure_temp 2>/dev/null | sed -E "s/^temp=//")"
+elif [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+  temp_value="$(awk '{printf "%.1f\047C", $1 / 1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null)"
+else
+  temp_value="unknown"
+fi
+printf 'cpu_temp=%s\n' "${temp_value:-unknown}"
+
+net_iface="$(ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')"
+if [ -z "$net_iface" ]; then
+  net_iface="$(ls /sys/class/net 2>/dev/null | grep -v '^lo$' | head -n 1)"
+fi
+if [ -n "$net_iface" ]; then
+  net_state="$(cat /sys/class/net/"$net_iface"/operstate 2>/dev/null || printf unknown)"
+  net_ip="$(ip -4 addr show "$net_iface" 2>/dev/null | awk '/inet / {print $2; exit}' | cut -d/ -f1)"
+  printf 'network=%s %s / %s\n' "$net_iface" "$net_state" "${net_ip:-no IPv4}"
+else
+  printf 'network=unknown\n'
+fi
 
 if command -v rpicam-hello >/dev/null 2>&1; then
   camera_output="$(timeout 5 rpicam-hello --list-cameras 2>&1 || true)"
@@ -157,6 +181,9 @@ def check_device_status(device: Dict[str, Any]) -> Dict[str, Any]:
         "uptime": info.get("uptime", ""),
         "ram": info.get("ram", ""),
         "storage": info.get("storage", ""),
+        "cpu": info.get("cpu", ""),
+        "cpuTemp": normalize_cpu_temperature(info.get("cpu_temp", "")),
+        "network": info.get("network", ""),
         "camera": normalize_camera_status(info.get("camera", "")),
         "error": "" if result.returncode == 0 else (result.stderr or "SSH connection failed.").strip(),
     }
@@ -174,6 +201,14 @@ def normalize_camera_status(raw_status: str) -> str:
     if "detected=0" in lower or "not detected" in lower:
         return "not detected"
     return status
+
+
+# Keep the UI label explicit: this value is the Raspberry Pi CPU/SoC temperature.
+def normalize_cpu_temperature(raw_temperature: str) -> str:
+    temperature = raw_temperature.strip()
+    if not temperature:
+        return "unknown"
+    return temperature.replace("°", "")
 
 
 # Check devices concurrently with a small cap. This keeps the manual refresh snappy

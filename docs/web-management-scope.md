@@ -24,7 +24,7 @@
   - 온라인 또는 오프라인 상태
   - 장비 ID 또는 표시 이름
   - SSH host 또는 확인 대상 주소
-  - IP 주소
+  - Network 상태에 포함되는 IP 주소
   - 마지막 확인 시간
   - 실패 시 간단한 오류 메시지
 - 프로그램 목록, 환경 변수 키, CLI 명령은 메인 화면에 표시하지 않는다.
@@ -44,8 +44,11 @@
 - RAM 사용량
 - Storage 사용량
 - Camera 사용 가능 여부 (`rpicam-hello --list-cameras` 기준)
+- CPU 활성 상태
+- Network 상태
+- CPU 온도
 
-온도, CPU 사용량, systemd 서비스 상태는 1차 범위에서 제외하고 필요성이 확인되면 추가한다.
+systemd 서비스 상태는 1차 범위에서 제외하고 필요성이 확인되면 추가한다. 온도는 Raspberry Pi SoC/CPU 온도로 명확히 표시한다.
 
 ### 설정 정보 페이지
 
@@ -79,7 +82,7 @@
 - 웹에서 장비 추가/수정
 - `upload-*` systemd 서비스 상태 확인
 - mDNS 또는 IP 대역 기반 장비 탐색
-- CPU, 온도 표시
+- systemd 서비스 상태 표시
 - 웹에서 기존 CLI 작업 실행
 - 작업 로그 저장과 조회
 
@@ -98,12 +101,14 @@
 | 상태 | 온라인 |
 | ID | `raspberrypi-1` |
 | Host | `raspberrypi-1.local` |
-| IP | `192.168.1.100` |
 | 마지막 확인 | `14:32:10` |
 | 업타임 정보 | `up 3 hours` |
 | RAM | `512MB / 1GB` |
 | Storage | `4GB / 16GB` |
 | Camera | `camera available` |
+| CPU | `12% active / load 0.23 / 4 cores` |
+| Network | `eth0 up / 192.168.1.100` |
+| CPU 온도 | `48.2'C` |
 | 오류 메시지 | `ssh: connect to host raspberrypi-1.local port 22: Connection refused` |
 
 ## 구현 메모
@@ -112,6 +117,7 @@
 - 외부 의존성을 추가하기 전에는 표준 라이브러리 `http.server`로 충분한지 먼저 판단한다.
 - 상태 확인 명령은 `ssh -o BatchMode=yes -o ConnectTimeout=4 <host> <command>` 형태를 사용한다.
 - 카메라 확인은 Raspberry Pi 최신 카메라 스택에 맞춰 `rpicam-hello --list-cameras`를 우선 사용한다.
+- 온도는 `/sys/class/thermal/thermal_zone0/temp` 또는 `vcgencmd measure_temp`로 확인한 CPU 온도를 표시한다.
 - 실패한 장비가 있어도 전체 화면이 멈추지 않도록 장비별 timeout을 둔다.
 - 쓰기 기능을 추가하기 전까지는 `data/devices.yaml`을 변경하지 않는다.
 

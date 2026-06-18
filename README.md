@@ -209,7 +209,7 @@ upload-<program>
 
 ## 웹 관리 페이지
 
-등록된 Raspberry Pi 장비가 현재 동작 중인지와 기본 상태를 읽기 전용 대시보드로 확인할 수 있습니다. 메인 화면에는 프로그램 목록, 환경 변수 키, CLI 명령 안내 같은 설정 정보가 표시되지 않습니다.
+등록된 Raspberry Pi 장비가 현재 동작 중인지와 기본 상태를 읽기 전용 대시보드로 확인할 수 있습니다. 메인 화면에는 uptime, RAM, storage, CPU 활성 상태, network 상태, CPU 온도, camera 상태를 표시하고, 프로그램 목록, 환경 변수 키, CLI 명령 안내 같은 설정 정보는 표시하지 않습니다.
 
 ```bash
 uv run main.py web

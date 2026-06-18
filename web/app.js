@@ -60,6 +60,9 @@ function renderDeviceCards() {
     const uptime = status?.uptime || "-";
     const ram = status?.ram || "-";
     const storage = status?.storage || "-";
+    const cpu = status?.cpu || "-";
+    const network = status?.network || "-";
+    const cpuTemp = status?.cpuTemp || "-";
     const camera = status?.camera || "-";
     const error = status && !status.online ? `<div class="error">${escapeHtml(status.error || "SSH connection failed.")}</div>` : "";
 
@@ -73,10 +76,12 @@ function renderDeviceCards() {
           <span class="status ${className}">${label}</span>
         </div>
         <dl class="status-details">
-          <div><dt>IP</dt><dd>${escapeHtml(device.ip || "-")}</dd></div>
           <div><dt>Uptime</dt><dd>${escapeHtml(uptime)}</dd></div>
           <div><dt>RAM</dt><dd>${escapeHtml(ram)}</dd></div>
           <div><dt>Storage</dt><dd>${escapeHtml(storage)}</dd></div>
+          <div><dt>CPU</dt><dd>${escapeHtml(cpu)}</dd></div>
+          <div><dt>Network</dt><dd>${escapeHtml(network)}</dd></div>
+          <div><dt>CPU Temp</dt><dd>${escapeHtml(cpuTemp)}</dd></div>
           <div><dt>Camera</dt><dd>${escapeHtml(camera)}</dd></div>
         </dl>
         ${error}

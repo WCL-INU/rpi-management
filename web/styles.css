@@ -117,7 +117,7 @@ h2 { font-size: 18px; }
 
 .device-card {
   padding: 15px;
-  min-height: 232px;
+  min-height: 310px;
 }
 
 .device-card.online { border-color: #b8dfca; }
@@ -162,7 +162,7 @@ h2 { font-size: 18px; }
 
 .status-details div {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-columns: 92px minmax(0, 1fr);
   gap: 10px;
   font-size: 14px;
 }
