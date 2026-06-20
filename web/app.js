@@ -57,6 +57,7 @@ function renderDeviceCards() {
 
     // Keep each card focused on runtime health. Configuration fields such as
     // programs or env keys are intentionally not rendered on this page.
+    const checkedAt = status?.checkedAt ? new Date(status.checkedAt * 1000).toLocaleTimeString() : "-";
     const uptime = status?.uptime || "-";
     const ram = status?.ram || "-";
     const storage = status?.storage || "-";
@@ -76,6 +77,7 @@ function renderDeviceCards() {
           <span class="status ${className}">${label}</span>
         </div>
         <dl class="status-details">
+          <div><dt>Checked</dt><dd>${escapeHtml(checkedAt)}</dd></div>
           <div><dt>Uptime</dt><dd>${escapeHtml(uptime)}</dd></div>
           <div><dt>RAM</dt><dd>${escapeHtml(ram)}</dd></div>
           <div><dt>Storage</dt><dd>${escapeHtml(storage)}</dd></div>
@@ -85,6 +87,9 @@ function renderDeviceCards() {
           <div><dt>Camera</dt><dd>${escapeHtml(camera)}</dd></div>
         </dl>
         ${error}
+        <div class="card-actions">
+          <button class="refresh-device" data-device-id="${escapeAttr(device.id || "")}">이 장비 새로고침</button>
+        </div>
       </article>
     `;
   }).join("");
@@ -103,20 +108,46 @@ async function loadDevices() {
   render();
 }
 
-async function refreshStatus() {
-  const button = $("#refresh-status");
+function mergeStatuses(statuses) {
+  for (const status of statuses) {
+    state.statuses.set(status.id, status);
+  }
+}
+
+async function refreshAll(button) {
   button.disabled = true;
+  const originalText = button.textContent;
   button.textContent = "확인 중";
   try {
-    // Status checks are manual by design. The document says periodic refresh is a
-    // future option, so there is no timer here.
+    // The all-device path is still manual. It is useful for an initial sweep,
+    // while per-card refresh stays available for focused follow-up checks.
     const payload = await request("/api/status", { method: "POST", body: "{}" });
-    state.statuses = new Map(payload.statuses.map((status) => [status.id, status]));
+    mergeStatuses(payload.statuses);
     render();
-    toast("상태 확인을 마쳤습니다.");
+    toast("전체 상태를 갱신했습니다.");
   } finally {
     button.disabled = false;
-    button.textContent = "상태 확인";
+    button.textContent = originalText;
+  }
+}
+
+async function refreshDevice(deviceId, button) {
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "확인 중";
+  try {
+    // Refresh only the requested device. Other cards keep their last known status,
+    // which makes partial checks fast and avoids hiding useful stale information.
+    const payload = await request("/api/status", {
+      method: "POST",
+      body: JSON.stringify({ deviceId }),
+    });
+    mergeStatuses(payload.statuses);
+    render();
+    toast(`${deviceId} 상태를 갱신했습니다.`);
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
   }
 }
 
@@ -129,5 +160,21 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-$("#refresh-status").addEventListener("click", () => refreshStatus().catch((error) => toast(error.message)));
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+document.addEventListener("click", (event) => {
+  const deviceButton = event.target.closest(".refresh-device");
+  if (deviceButton) {
+    refreshDevice(deviceButton.dataset.deviceId, deviceButton).catch((error) => toast(error.message));
+    return;
+  }
+
+  const allButton = event.target.closest("#refresh-all");
+  if (allButton) {
+    refreshAll(allButton).catch((error) => toast(error.message));
+  }
+});
+
 loadDevices().catch((error) => toast(error.message));

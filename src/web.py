@@ -213,13 +213,23 @@ def normalize_cpu_temperature(raw_temperature: str) -> str:
 
 # Check devices concurrently with a small cap. This keeps the manual refresh snappy
 # without creating a stampede of SSH processes on larger local networks.
-def status_payload() -> Dict[str, Any]:
+def status_payload(device_id: str | None = None) -> tuple[Dict[str, Any], int]:
     devices = list_dashboard_devices()
+
+    # The dashboard supports both a whole-fleet sweep and a focused one-device
+    # refresh. Keeping both paths in one endpoint makes the browser controls
+    # simple while preserving the per-card workflow for slower devices.
+    if device_id:
+        devices = [device for device in devices if device["id"] == device_id]
+        if not devices:
+            return {"error": f"Unknown device: {device_id}"}, HTTPStatus.NOT_FOUND
+
     if not devices:
-        return {"statuses": [], "checkedAt": time.time()}
+        return {"statuses": [], "checkedAt": time.time()}, HTTPStatus.OK
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(devices))) as executor:
         statuses = list(executor.map(check_device_status, devices))
-    return {"statuses": statuses, "checkedAt": time.time()}
+    return {"statuses": statuses, "checkedAt": time.time()}, HTTPStatus.OK
 
 
 # Tiny JSON helper for the small stdlib HTTP server. Keeping it here avoids pulling
@@ -260,9 +270,11 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
-            read_json(self)
+            payload = read_json(self)
             if parsed.path == "/api/status":
-                send_json(self, status_payload())
+                device_id = str(payload.get("deviceId") or "").strip() if isinstance(payload, dict) else ""
+                response, status = status_payload(device_id or None)
+                send_json(self, response, status)
                 return
             send_error_json(self, "Unknown API endpoint.", HTTPStatus.NOT_FOUND)
         except json.JSONDecodeError:
