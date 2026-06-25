@@ -4,6 +4,7 @@ import argparse
 import concurrent.futures
 import json
 import mimetypes
+import os
 import subprocess
 import time
 from http import HTTPStatus
@@ -22,6 +23,24 @@ WEB_DIR = ROOT_DIR / "web"
 # so a slow or unreachable Raspberry Pi should not hold the whole dashboard hostage.
 STATUS_TIMEOUT = 12
 CONNECT_TIMEOUT = 4
+DEFAULT_MAX_CONCURRENT_SSH = 3
+MAX_CONCURRENT_SSH_ENV = "RPI_WEB_MAX_CONCURRENT_SSH"
+
+
+# Bound whole-fleet refreshes so the web page cannot create too many simultaneous
+# SSH sessions on a small LAN. Invalid or empty environment values intentionally
+# fall back to the conservative default instead of failing web startup.
+def max_concurrent_ssh() -> int:
+    raw_value = os.environ.get(MAX_CONCURRENT_SSH_ENV, "").strip()
+    if not raw_value:
+        return DEFAULT_MAX_CONCURRENT_SSH
+
+    try:
+        value = int(raw_value)
+    except ValueError:
+        return DEFAULT_MAX_CONCURRENT_SSH
+
+    return max(1, value)
 
 
 # The main dashboard intentionally exposes only identity and network target fields.
@@ -211,8 +230,8 @@ def normalize_cpu_temperature(raw_temperature: str) -> str:
     return temperature.replace("°", "")
 
 
-# Check devices concurrently with a small cap. This keeps the manual refresh snappy
-# without creating a stampede of SSH processes on larger local networks.
+# Check devices concurrently with a small cap. This keeps the manual refresh usable
+# without creating a burst of SSH processes on the local network.
 def status_payload(device_id: str | None = None) -> tuple[Dict[str, Any], int]:
     devices = list_dashboard_devices()
 
@@ -227,7 +246,11 @@ def status_payload(device_id: str | None = None) -> tuple[Dict[str, Any], int]:
     if not devices:
         return {"statuses": [], "checkedAt": time.time()}, HTTPStatus.OK
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(devices))) as executor:
+    # Single-card refreshes naturally use one worker. Whole-fleet refreshes are
+    # capped by RPI_WEB_MAX_CONCURRENT_SSH so weak networks or Raspberry Pi hosts
+    # are not overloaded by simultaneous SSH probes.
+    worker_count = min(max_concurrent_ssh(), len(devices))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
         statuses = list(executor.map(check_device_status, devices))
     return {"statuses": statuses, "checkedAt": time.time()}, HTTPStatus.OK
 
