@@ -36,6 +36,18 @@ function formatCheckedAt(statuses) {
   return new Date(latest).toLocaleTimeString();
 }
 
+function extractIPv4(value) {
+  const match = String(value || "").match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+  return match ? match[0] : "";
+}
+
+function streamUrlFor(device, status) {
+  // Prefer the runtime IP from Network after a status check. Before that exists,
+  // use the configured host so operators can still open the stream page directly.
+  const target = extractIPv4(status?.network) || device.host || device.id || "";
+  return target ? `http://${target}:8000` : "";
+}
+
 function renderSummary() {
   const statuses = state.devices
     .map((device) => state.statuses.get(device.id))
@@ -65,6 +77,10 @@ function renderDeviceCards() {
     const network = status?.network || "-";
     const cpuTemp = status?.cpuTemp || "-";
     const camera = status?.camera || "-";
+    const streamUrl = streamUrlFor(device, status);
+    const streamLink = streamUrl
+      ? `<a class="stream-link" href="${escapeAttr(streamUrl)}" target="_blank" rel="noreferrer">스트리밍 열기</a>`
+      : `<span class="stream-link disabled">스트리밍 주소 없음</span>`;
     const error = status && !status.online ? `<div class="error">${escapeHtml(status.error || "SSH connection failed.")}</div>` : "";
 
     return `
@@ -88,6 +104,7 @@ function renderDeviceCards() {
         </dl>
         ${error}
         <div class="card-actions">
+          ${streamLink}
           <button class="refresh-device" data-device-id="${escapeAttr(device.id || "")}">이 장비 새로고침</button>
         </div>
       </article>

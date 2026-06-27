@@ -36,11 +36,35 @@ button {
 
 button:disabled { cursor: wait; opacity: 0.7; }
 
-.refresh-device {
+.refresh-device,
+.stream-link {
   width: 100%;
-  margin-top: 14px;
+}
+
+.refresh-device {
   background: #ffffff;
   color: var(--accent);
+}
+
+.stream-link {
+  min-height: 38px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  text-decoration: none;
+}
+
+.stream-link.disabled {
+  border-color: var(--line);
+  background: var(--unknown-bg);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .page {
@@ -183,6 +207,8 @@ h2 { font-size: 18px; }
 
 .card-actions {
   margin-top: auto;
+  display: grid;
+  gap: 8px;
 }
 
 .error {
